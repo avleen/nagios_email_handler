@@ -95,7 +95,11 @@ def get_email_data(msg):
     # Make sure the subject matches one we care about
     msg = email.message_from_string(msg)
     subject_p = re.compile('(Host|Service) Alert: (.*?) is', re.IGNORECASE)
-    from_p = re.compile('(\s+|<)([\w\d._%+-]+@[\w\d.-]+\.[\w]{2,4})',
+    if '<' in msg['From']:
+        from_p = re.compile('<([\w\d._%+-]+@[\w\d.-]+\.[\w]{2,4})',
+                               re.IGNORECASE)
+    else:
+        from_p = re.compile('([\w\d._%+-]+@[\w\d.-]+\.[\w]{2,4})',
                                re.IGNORECASE)
     if subject_p.search(msg['Subject']):
         alert_class = subject_p.search(msg['Subject']).group(1)
@@ -105,7 +109,7 @@ def get_email_data(msg):
             server = server_service.split('/')[0]
         else:
             server = server_service
-        fromaddr = from_p.search(msg['From']).group(2)
+        fromaddr = from_p.search(msg['From']).group(1)
 
         # The command is the first word in the body
         for part in msg.walk():
@@ -113,7 +117,6 @@ def get_email_data(msg):
                 part.get_content_subtype() == 'plain':
                 # Now we have the 'text/plain' part of the message. Find the
                 # first word in it, that is our command.
-                print part.get_content_maintype(), part.get_content_subtype()
                 command = part.get_payload().split()[0].lower()
                 break
     return alert_class, fromaddr, server, service, command
@@ -165,10 +168,9 @@ def main():
         if alert_class:
             print('%s, %s, %s, %s, %s' % (
                   alert_class, fromaddr, server, service, command))
-            #mark_message_read(msg_uid)
+            mark_message_read(msg_uid)
         else:
-            print 'foo'
-            #delete_message(msg_uid)
+            delete_message(msg_uid)
             continue
 
         # Figure out what the admin was trying to do.
