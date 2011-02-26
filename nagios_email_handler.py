@@ -6,6 +6,7 @@ This script is designed to connect to IMAP mail boxes and download unread
 messages. The messages are then parsed to commands to run against nagios."""
 
 
+import base64
 import email
 import imaplib
 import logging
@@ -111,14 +112,19 @@ def get_email_data(msg):
             server = server_service
         fromaddr = from_p.search(msg['From']).group(1)
 
-        # The command is the first word in the body
-        for part in msg.walk():
-            if part.get_content_maintype() == 'text' and \
-                part.get_content_subtype() == 'plain':
-                # Now we have the 'text/plain' part of the message. Find the
-                # first word in it, that is our command.
-                command = part.get_payload().split()[0].lower()
-                break
+        # The command is the first word in the body.
+        # First check if the message is base64 encoded as a whole. If it is,
+        # decode and get the word from there.
+        if msg['Content-Transfer-Encoding'] == 'base64':
+            command = base64.b64decode(msg.get_payload()).split()[0]
+        else:
+            for part in msg.walk():
+                if part.get_content_maintype() == 'text' and \
+                    part.get_content_subtype() == 'plain':
+                    # Now we have the 'text/plain' part of the message. Find
+                    # the first word in it, that is our command.
+                    command = part.get_payload().split()[0].lower()
+                    break
     return alert_class, fromaddr, server, service, command
 
 
